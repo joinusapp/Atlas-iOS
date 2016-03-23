@@ -37,6 +37,7 @@ typedef NS_ENUM(NSUInteger, ATLAvatarItemDisplayFrequency) {
 /// @name Delegate
 ///---------------------------------------
 
+NS_ASSUME_NONNULL_BEGIN
 @protocol ATLConversationViewControllerDelegate <NSObject>
 
 @optional
@@ -96,7 +97,7 @@ typedef NS_ENUM(NSUInteger, ATLAvatarItemDisplayFrequency) {
  current conversation for the controller. If implemented, applications should also register custom `UICollectionViewCell` classes with the controller via
  a call to `registerClass:forMessageCellWithReuseIdentifier:`. They should also implement the optional data source method, `conversationViewController:reuseIdentifierForMessage:`.
  */
-- (NSOrderedSet *)conversationViewController:(ATLConversationViewController *)viewController messagesForMediaAttachments:(NSArray *)mediaAttachments;
+- (NSOrderedSet <LYRMessage*> *)conversationViewController:(ATLConversationViewController *)viewController messagesForMediaAttachments:(NSArray <ATLMediaAttachment*> *)mediaAttachments;
 
 @end
 
@@ -181,7 +182,7 @@ typedef NS_ENUM(NSUInteger, ATLAvatarItemDisplayFrequency) {
  a Layer conversation and the ability to send messages. The controller's design and functionality closely correlates with
  the conversation view controller in Messages.
 */
-@interface ATLConversationViewController : ATLBaseConversationViewController <ATLAddressBarViewControllerDelegate, UIImagePickerControllerDelegate, UINavigationControllerDelegate, LYRQueryControllerDelegate>
+@interface ATLConversationViewController : ATLBaseConversationViewController <ATLAddressBarViewControllerDelegate, ATLMessageInputToolbarDelegate, UIActionSheetDelegate, UIImagePickerControllerDelegate, UINavigationControllerDelegate, LYRQueryControllerDelegate>
 
 ///---------------------------------------
 /// @name Initializing a Controller
@@ -298,3 +299,4 @@ typedef NS_ENUM(NSUInteger, ATLAvatarItemDisplayFrequency) {
 @property (nonatomic) ATLAvatarItemDisplayFrequency avatarItemDisplayFrequency;
 
 @end
+NS_ASSUME_NONNULL_END

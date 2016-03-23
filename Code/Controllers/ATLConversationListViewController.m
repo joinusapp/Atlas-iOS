@@ -49,8 +49,8 @@ static NSString *const ATLGIFMIMETypePlaceholderText = @"Attachment: GIF";
 NSString *const ATLConversationListViewControllerTitle = @"Messages";
 NSString *const ATLConversationTableViewAccessibilityLabel = @"Conversation Table View";
 NSString *const ATLConversationTableViewAccessibilityIdentifier = @"Conversation Table View Identifier";
-NSString *const ATLConversationListViewControllerDeletionModeLocal = @"Local";
-NSString *const ATLConversationListViewControllerDeletionModeGlobal = @"Global";
+NSString *const ATLConversationListViewControllerDeletionModeMyDevices = @"My Devices";
+NSString *const ATLConversationListViewControllerDeletionModeEveryone = @"Everyone";
 
 + (instancetype)conversationListViewControllerWithLayerClient:(LYRClient *)layerClient
 {
@@ -81,11 +81,12 @@ NSString *const ATLConversationListViewControllerDeletionModeGlobal = @"Global";
 - (void)lyr_commonInit
 {
     _cellClass = [ATLConversationTableViewCell class];
-    _deletionModes = @[@(LYRDeletionModeLocal), @(LYRDeletionModeAllParticipants)];
+    _deletionModes = @[@(LYRDeletionModeMyDevices), @(LYRDeletionModeAllParticipants)];
     _displaysAvatarItem = NO;
     _allowsEditing = YES;
     _rowHeight = 76.0f;
     _shouldDisplaySearchController = YES;
+    _hasAppeared = NO;
 }
 
 - (id)init
@@ -107,6 +108,7 @@ NSString *const ATLConversationListViewControllerDeletionModeGlobal = @"Global";
 - (void)viewDidLoad
 {
     [super viewDidLoad];
+    
     self.title = ATLLocalizedString(@"atl.conversationlist.title.key", ATLConversationListViewControllerTitle, nil);
     self.accessibilityLabel = ATLConversationListViewControllerTitle;
 
@@ -145,6 +147,7 @@ NSString *const ATLConversationListViewControllerDeletionModeGlobal = @"Global";
         [self.tableView registerClass:self.cellClass forCellReuseIdentifier:ATLConversationCellReuseIdentifier];
         if (self.allowsEditing) [self addEditButton];
     }
+    
     if (!self.queryController) {
         [self setupConversationDataSource];
     }
@@ -309,6 +312,9 @@ NSString *const ATLConversationListViewControllerDeletionModeGlobal = @"Global";
     if (!conversation) {
         @throw [NSException exceptionWithName:NSInvalidArgumentException reason:@"`conversation` cannot be nil." userInfo:nil];
     }
+    if (!self.queryController) {
+        return;
+    }
     NSIndexPath *indexPath = [self.queryController indexPathForObject:conversation];
     if (indexPath) {
         [self.tableView reloadRowsAtIndexPaths:@[ indexPath ] withRowAnimation:UITableViewRowAnimationAutomatic];
@@ -327,11 +333,11 @@ NSString *const ATLConversationListViewControllerDeletionModeGlobal = @"Global";
             actionString = [self.dataSource conversationListViewController:self textForButtonWithDeletionMode:deletionMode.integerValue];
         } else {
             switch (deletionMode.integerValue) {
-                case LYRDeletionModeLocal:
-                    actionString = ATLLocalizedString(@"atl.conversationlist.deletionmode.local.key", ATLConversationListViewControllerDeletionModeLocal, nil);
+                case LYRDeletionModeMyDevices:
+                    actionString = ATLLocalizedString(@"atl.conversationlist.deletionmode.mydevices.key", ATLConversationListViewControllerDeletionModeMyDevices, nil);
                     break;
                 case LYRDeletionModeAllParticipants:
-                    actionString = ATLLocalizedString(@"atl.conversationlist.deletionmode.global.key", ATLConversationListViewControllerDeletionModeGlobal, nil);
+                    actionString = ATLLocalizedString(@"atl.conversationlist.deletionmode.everyone.key", ATLConversationListViewControllerDeletionModeEveryone, nil);
                     break;
                 default:
                     break;
@@ -341,7 +347,7 @@ NSString *const ATLConversationListViewControllerDeletionModeGlobal = @"Global";
             actionColor = [self.dataSource conversationListViewController:self colorForButtonWithDeletionMode:deletionMode.integerValue];
         } else {
             switch (deletionMode.integerValue) {
-                case LYRDeletionModeLocal:
+                case LYRDeletionModeMyDevices:
                     actionColor = [UIColor redColor];
                     break;
                 case LYRDeletionModeAllParticipants:
@@ -363,7 +369,7 @@ NSString *const ATLConversationListViewControllerDeletionModeGlobal = @"Global";
 - (void)tableView:(UITableView *)tableView commitEditingStyle:(UITableViewCellEditingStyle)editingStyle forRowAtIndexPath:(NSIndexPath *)indexPath
 {
     self.conversationToDelete = [self.queryController objectAtIndexPath:indexPath];
-    UIActionSheet *actionSheet = [[UIActionSheet alloc] initWithTitle:nil delegate:self cancelButtonTitle:@"Cancel" destructiveButtonTitle:ATLConversationListViewControllerDeletionModeGlobal otherButtonTitles:ATLConversationListViewControllerDeletionModeLocal, nil];
+    UIActionSheet *actionSheet = [[UIActionSheet alloc] initWithTitle:nil delegate:self cancelButtonTitle:@"Cancel" destructiveButtonTitle:ATLConversationListViewControllerDeletionModeEveryone otherButtonTitles:ATLConversationListViewControllerDeletionModeMyDevices, nil];
     [actionSheet showInView:self.view];
 }
 
@@ -382,7 +388,7 @@ NSString *const ATLConversationListViewControllerDeletionModeGlobal = @"Global";
     if (buttonIndex == actionSheet.destructiveButtonIndex) {
         [self deleteConversation:self.conversationToDelete withDeletionMode:LYRDeletionModeAllParticipants];
     } else if (buttonIndex == actionSheet.firstOtherButtonIndex) {
-        [self deleteConversation:self.conversationToDelete withDeletionMode:LYRDeletionModeLocal];
+        [self deleteConversation:self.conversationToDelete withDeletionMode:LYRDeletionModeMyDevices];
     } else if (buttonIndex == actionSheet.cancelButtonIndex) {
         [self setEditing:NO animated:YES];
     }
@@ -460,6 +466,8 @@ NSString *const ATLConversationListViewControllerDeletionModeGlobal = @"Global";
 
 #pragma mark - UISearchDisplayDelegate
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 
 - (void)searchDisplayController:(UISearchDisplayController *)controller didLoadSearchResultsTableView:(UITableView *)tableView
 {
@@ -491,6 +499,8 @@ NSString *const ATLConversationListViewControllerDeletionModeGlobal = @"Global";
     }
     return NO;
 }
+
+#pragma GCC diagnostic pop
 
 - (LYRQueryController *)queryController
 {

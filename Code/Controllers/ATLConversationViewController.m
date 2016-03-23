@@ -30,9 +30,10 @@
 #import "ATLConversationDataSource.h"
 #import "ATLMediaAttachment.h"
 #import "ATLLocationManager.h"
+
 @import AVFoundation;
 
-@interface ATLConversationViewController () <UICollectionViewDataSource, UICollectionViewDelegate, ATLMessageInputToolbarDelegate, UIActionSheetDelegate, CLLocationManagerDelegate>
+@interface ATLConversationViewController () <UICollectionViewDataSource, UICollectionViewDelegate, CLLocationManagerDelegate>
 
 @property (nonatomic) ATLConversationDataSource *conversationDataSource;
 @property (nonatomic, readwrite) LYRQueryController *queryController;
@@ -49,6 +50,7 @@
 @property (nonatomic) BOOL shouldShareLocation;
 @property (nonatomic) BOOL canDisableAddressBar;
 @property (nonatomic) dispatch_queue_t animationQueue;
+@property (nonatomic) BOOL expandingPaginationWindow;
 
 @end
 
@@ -141,9 +143,11 @@ static NSInteger const ATLPhotoActionSheet = 1000;
 - (void)viewDidLoad
 {
     [super viewDidLoad];
+    
     if (!self.conversationDataSource) {
         [self fetchLayerMessages];
     }
+    
     [self configureControllerForConversation];
     self.messageInputToolbar.inputToolBarDelegate = self;
     self.addressBarController.delegate = self;
@@ -901,6 +905,7 @@ static NSInteger const ATLPhotoActionSheet = 1000;
     BOOL nearTop = distanceFromTop <= minimumDistanceFromTopToTriggerLoadingMore;
     if (!nearTop) return;
     
+    self.expandingPaginationWindow = YES;
     [self.conversationDataSource expandPaginationWindow];
 }
 
@@ -998,9 +1003,16 @@ static NSInteger const ATLPhotoActionSheet = 1000;
 
 - (void)reloadCellsForMessagesSentByParticipantWithIdentifier:(NSString *)participantIdentifier
 {
+    if (self.conversationDataSource.queryController.query == nil) {
+        return;
+    }
+    
     dispatch_async(self.animationQueue, ^{
         // Query for all of the message identifiers in the conversation
         LYRQuery *messageIdentifiersQuery = [self.conversationDataSource.queryController.query copy];
+        if (messageIdentifiersQuery == nil) {
+            return;
+        }
         messageIdentifiersQuery.resultType = LYRQueryResultTypeIdentifiers;
         NSError *error = nil;
         NSOrderedSet *messageIdentifiers = [self.layerClient executeQuery:messageIdentifiersQuery error:&error];
@@ -1163,7 +1175,7 @@ static NSInteger const ATLPhotoActionSheet = 1000;
           forChangeType:(LYRQueryControllerChangeType)type
            newIndexPath:(NSIndexPath *)newIndexPath
 {
-    if (self.conversationDataSource.isExpandingPaginationWindow) return;
+    if (self.expandingPaginationWindow) return;
     NSInteger currentIndex = indexPath ? [self.conversationDataSource collectionViewSectionForQueryControllerRow:indexPath.row] : NSNotFound;
     NSInteger newIndex = newIndexPath ? [self.conversationDataSource collectionViewSectionForQueryControllerRow:newIndexPath.row] : NSNotFound;
     [self.objectChanges addObject:[ATLDataSourceChange changeObjectWithType:type newIndex:newIndex currentIndex:currentIndex]];
@@ -1179,7 +1191,8 @@ static NSInteger const ATLPhotoActionSheet = 1000;
     NSArray *objectChanges = [self.objectChanges copy];
     [self.objectChanges removeAllObjects];
     
-    if (self.conversationDataSource.isExpandingPaginationWindow) {
+    if (self.expandingPaginationWindow) {
+        self.expandingPaginationWindow = NO;
         self.showingMoreMessagesIndicator = [self.conversationDataSource moreMessagesAvailable];
         [self reloadCollectionViewAdjustingForContentHeightChange];
         return;
